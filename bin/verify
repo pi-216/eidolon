@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 2
+cd "$ROOT" || exit 2
+
+if [ -x "$ROOT/.venv/bin/python3" ]; then
+  export PATH="$ROOT/.venv/bin:$PATH"
+fi
+
+run() {
+  local label="$1"
+  shift
+  printf '==> %s\n' "$label"
+  if "$@"; then
+    printf '  OK    %s\n' "$label"
+  else
+    printf '  FAIL  %s\n' "$label"
+    exit 1
+  fi
+}
+
+run "red-lines presence" test -f docs/pm/red-lines.md
+run "ci test suite"      bash ci/run_tests.sh
+
+printf '\nVERIFY OK\n'

@@ -1,8 +1,19 @@
+---
+harness_version: 1
+---
+
 # Project Eidolon — Agent Instructions
 
 This file exists for AI agents (Hermes, Claude, Codex, etc.) working on this
 project. Read it FIRST — before reading any other file, before running any
 commands, before making any changes.
+
+## Board-Driven Research & Anti-Tangent Firewall (`pi-216`)
+
+- **The GitHub Project board is the sole work queue.** `PROJECT_STATUS.md`, `docs/03_EXPERIMENT_TREE.md`, and `docs/02_EXPERIMENTS_AND_RESULTS.md` are empirical records, never self-authored work queues.
+- **Zero inline sidequests.** If an experiment surfaces an unexpected anomaly or follow-up idea, record the observation in the ledger entry, optionally file an unlabeled GitHub issue (`Task` or `Feature`, never `approved`), and halt.
+- **Worktrees:** Implement in the ticket's own worktree (`bin/worktree <N>` -> `.worktrees/issue-<N>` on branch `work/issue-<N>`), never in the live tree.
+- **Every commit must pass `bin/verify` (`VERIFY OK`).** No explanatory comments in touched files (`bin/check_comments`).
 
 ## Start here (mandatory — read in this order)
 
