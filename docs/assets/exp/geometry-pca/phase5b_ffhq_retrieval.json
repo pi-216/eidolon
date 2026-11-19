@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-29T22:32:05.768291",
+  "dataset": "FFHQ",
+  "n_index": 10000,
+  "n_query": 500,
+  "n_skin_labeled": 6570,
+  "GA_prior_recall10": 0.0,
+  "GA_null_recall10": 0.0,
+  "GA_shuffle_recall10": 0.0,
+  "GB_lda1_mean_shift": 0.0047333334088325504,
+  "GB_lda1_se": 0.006215721275362043,
+  "GB_null_mean_shift": -0.004533333361148834,
+  "GB_null_se": 0.006506322384476079
+}
