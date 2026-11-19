@@ -1,0 +1,14 @@
+{
+  "A": {
+    "n_samples": 69839,
+    "retained_variance": 0.8151229619979858
+  },
+  "A_prime": {
+    "n_samples": 69839,
+    "retained_variance": 0.8443856835365295
+  },
+  "C": {
+    "n_samples": 69839,
+    "retained_variance": 0.9138579368591309
+  }
+}
