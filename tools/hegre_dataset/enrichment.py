@@ -2,7 +2,6 @@ import subprocess
 import shutil
 import time
 from pathlib import Path
-import cv2
 import numpy as np
 
 from .dataset import HegreDataset
@@ -226,9 +225,10 @@ def run_stratum_enrichment(dataset_dir: Path, db_path: Path, faces_dir: Path,
                     new_argv = [sys.executable] + sys.argv
                 os.execv(sys.executable, new_argv)
                 
+            import cv2
             from insightface.app import FaceAnalysis
         except ImportError:
-            print("Error: insightface not installed. Skipping AuraFace extraction.")
+            print("Error: cv2/insightface not installed. Skipping AuraFace extraction.")
         else:
             app = FaceAnalysis(name='auraface', root='/mnt/nas-ai-models', providers=['CPUExecutionProvider'])
             # det_size in InsightFace forces the input image to be resized to that resolution before passing 
