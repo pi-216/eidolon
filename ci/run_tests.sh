@@ -25,7 +25,7 @@ while IFS= read -r line; do
 done < ci/known-failing.txt
 
 echo "::group::Excluded from this gate (known-failing — see ci/known-failing.txt, issue #3)"
-grep -vE '^\s*(#|$)' ci/known-failing.txt
+grep -vE '^\s*(#|$)' ci/known-failing.txt || true
 echo "::endgroup::"
 
 python -m pytest tests/tools tools/hegre_dataset/tests -q "${ignores[@]}"

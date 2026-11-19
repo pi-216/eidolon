@@ -30,11 +30,20 @@ from tools.auraface import (
 )
 from tools.auraface import extract as extract_mod
 
+_HAS_BASIS_ARTIFACTS = all(
+    (Path(BASIS_DIR) / name).exists() for name in EXPECTED_ARTIFACT_SHA256
+)
+requires_basis_artifacts = pytest.mark.skipif(
+    not _HAS_BASIS_ARTIFACTS,
+    reason="gitignored basis artifacts absent under experiments/geometry_pca/output/",
+)
+
 
 # --------------------------------------------------------------------------
 # positive: the real artifacts must verify
 # --------------------------------------------------------------------------
 
+@requires_basis_artifacts
 def test_real_basis_verifies():
     v = verify_basis()
     assert set(v["artifacts"]) == set(EXPECTED_ARTIFACT_SHA256)
@@ -48,6 +57,7 @@ def test_corpus_det_size_is_none():
     assert PAD_FRACTION == 0.20
 
 
+@requires_basis_artifacts
 def test_describe_instrument_records_everything_required():
     d = describe_instrument()
 
@@ -163,6 +173,7 @@ def test_batch_summary_empty_is_safe():
 
 def test_extract_verifies_basis_before_detecting(monkeypatch):
     """verify_basis must run before any detection, so a bad basis costs no compute."""
+    pytest.importorskip("cv2")
     calls = []
 
     def fake_verify(*a, **k):

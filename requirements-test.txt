@@ -16,3 +16,9 @@ SQLAlchemy>=2.0
 # that touches models/dataset needs it. Present in the dev venv, hence invisible
 # until the first CI run — the CI-local divergence the neutral runner exists to catch.
 pgvector>=0.3
+# `tools/hegre_dataset/review/ui.py` imports flask at module level; the review
+# UI tests are in-scope (no GPU/NAS/heavy-extras dependency).
+flask>=3.0
+# `tools/hegre_dataset/review/geometry.py` imports `geometry_pca.fit` at module
+# level, which imports sklearn. In-scope tests import that module.
+scikit-learn>=1.4

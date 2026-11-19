@@ -1,8 +1,12 @@
+import os
+import pytest
 import sqlite3
 import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import patch
+
+from sqlalchemy import create_engine, exc
 
 from tools.hegre_dataset.enrichment import generate_image_list, run_stratum_enrichment
 from tools.hegre_dataset.dataset import HegreDataset
@@ -29,12 +33,28 @@ def _make_test_db(db_path, rows, with_distances=False):
 
 
 def _make_ds(tmp_path, rows, with_distances=False):
-    """Create a test HegreDataset with review.db and return (ds, root)."""
+    """Create a test HegreDataset and return (ds, root).
+
+    The DB lives OUTSIDE the dataset root and is injected as an engine: the
+    root must stay clean so the fail-closed review.db guard keeps firing,
+    and no test may reach the project's PostgreSQL.
+    """
     root = tmp_path / "dataset"
     root.mkdir()
-    db_path = root / "review.db"
+    db_path = tmp_path / "hegre_test.db"
     _make_test_db(db_path, rows, with_distances=with_distances)
-    return HegreDataset(root), root
+    engine = create_engine(f"sqlite:///{db_path}")
+    return HegreDataset(root, engine=engine), root
+
+
+def _make_empty_ds_env(tmp_path, monkeypatch):
+    """Point EIDOLON_DB_URL at a schema-only SQLite DB in a clean root."""
+    root = tmp_path / "dataset"
+    root.mkdir()
+    db_path = tmp_path / "hegre_test.db"
+    _make_test_db(db_path, [])
+    monkeypatch.setenv("EIDOLON_DB_URL", f"sqlite:///{db_path}")
+    return root
 
 
 def test_generate_image_list_default_both(tmp_path):
@@ -52,7 +72,7 @@ def test_generate_image_list_default_both(tmp_path):
 
     paths = generate_image_list(ds)
 
-    assert len(paths) == 4  # 2 approved + 2 unreviewed
+    assert len(paths) == 4
     path_strs = {str(p) for p in paths}
     for ok in ["app1.jpg", "app2.jpg", "unr1.jpg", "unr2.jpg"]:
         assert str((root / ok).absolute()) in path_strs
@@ -112,33 +132,46 @@ def test_generate_image_list_empty(tmp_path):
     assert len(paths) == 0
 
 
-def test_run_stratum_enrichment_no_images(tmp_path):
+def test_reviewdb_guard_fires_on_stale_sqlite(tmp_path):
+    """A review.db at the dataset root must still raise — the guard stays armed."""
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "review.db").touch()
+    try:
+        HegreDataset(root, engine=create_engine("sqlite:///:memory:"))
+    except RuntimeError as e:
+        assert "review.db still exists" in str(e)
+    else:
+        raise AssertionError("fail-closed guard did not fire")
+
+
+def test_run_stratum_enrichment_no_images(tmp_path, monkeypatch):
     """When generate_image_list returns empty, enrichment skips early."""
-    ds, root = _make_ds(tmp_path, [])
+    root = _make_empty_ds_env(tmp_path, monkeypatch)
     (root / "faces").mkdir()
     (root / "stratum").mkdir()
 
     with patch("subprocess.run") as mock_run:
-        run_stratum_enrichment(root, root / "review.db", root,
+        run_stratum_enrichment(root, root / "hegre_test.db", root,
                                status_filter="approved")
         mock_run.assert_not_called()
 
 
 def test_cli_enrich_status_flag(tmp_path):
     """The --status flag is accepted by the enrich CLI subparser."""
-    ds, root = _make_ds(tmp_path, [
-        ("app1.jpg", "approved"),
-        ("unr1.jpg", "unreviewed"),
-    ])
-    for f in ["app1.jpg", "unr1.jpg"]:
-        (root / f).touch()
+    root = tmp_path / "dataset"
+    root.mkdir()
+    db_path = tmp_path / "hegre_test.db"
+    _make_test_db(db_path, [])
 
     result = subprocess.run(
         [sys.executable, "-m", "tools.hegre_dataset", "enrich",
          "--dataset", str(root), "--status", "approved", "--skip-stratum"],
         capture_output=True, text=True,
+        env={**os.environ, "EIDOLON_DB_URL": f"sqlite:///{db_path}"},
     )
-    assert "approved" in result.stdout.lower() or "approved" in result.stderr.lower() or result.returncode == 0
+    assert result.returncode == 0
+    assert "approved" in result.stdout.lower()
 
 
 class TestZgMaxDistanceFilter:
@@ -194,8 +227,8 @@ class TestZgMaxDistanceFilter:
         assert str((root / "unr_ok.jpg").absolute()) in path_strs
         assert str((root / "app_bad.jpg").absolute()) not in path_strs
 
-    def test_zg_filter_no_column_is_noop(self, tmp_path):
-        """If zg_distance column doesn't exist, filter is a no-op."""
+    def test_zg_filter_requires_column(self, tmp_path):
+        """Without a zg_distance column the filter query fails loudly, not silently."""
         ds, root = _make_ds(tmp_path, [
             ("img1.jpg", "approved"),
             ("img2.jpg", "approved"),
@@ -203,10 +236,9 @@ class TestZgMaxDistanceFilter:
         for f in ["img1.jpg", "img2.jpg"]:
             (root / f).touch()
 
-        paths = generate_image_list(ds, status_filter="approved",
-                                     zg_max_distance=50.0)
-
-        assert len(paths) == 2
+        with pytest.raises(exc.OperationalError):
+            generate_image_list(ds, status_filter="approved",
+                                 zg_max_distance=50.0)
 
 
 class TestSortBy:
@@ -246,24 +278,32 @@ class TestSortBy:
 
     def test_cli_sort_by_flag(self, tmp_path):
         """--sort-by is accepted by the CLI parser."""
-        ds, root = _make_ds(tmp_path, [("img1.jpg", "approved")])
-        (root / "img1.jpg").touch()
+        root = tmp_path / "dataset"
+        root.mkdir()
+        db_path = tmp_path / "hegre_test.db"
+        _make_test_db(db_path, [], with_distances=True)
 
         result = subprocess.run(
             [sys.executable, "-m", "tools.hegre_dataset", "enrich",
              "--dataset", str(root), "--sort-by", "af", "--skip-stratum"],
             capture_output=True, text=True,
+            env={**os.environ, "EIDOLON_DB_URL": f"sqlite:///{db_path}"},
         )
+        assert result.returncode == 0
         assert "--sort-by" not in (result.stderr or "")
 
     def test_cli_zg_max_distance_flag(self, tmp_path):
         """--zg-max-distance is accepted by the CLI parser."""
-        ds, root = _make_ds(tmp_path, [("img1.jpg", "approved")])
-        (root / "img1.jpg").touch()
+        root = tmp_path / "dataset"
+        root.mkdir()
+        db_path = tmp_path / "hegre_test.db"
+        _make_test_db(db_path, [], with_distances=True)
 
         result = subprocess.run(
             [sys.executable, "-m", "tools.hegre_dataset", "enrich",
              "--dataset", str(root), "--zg-max-distance", "100.0", "--skip-stratum"],
             capture_output=True, text=True,
+            env={**os.environ, "EIDOLON_DB_URL": f"sqlite:///{db_path}"},
         )
+        assert result.returncode == 0
         assert "zg" in result.stdout.lower() or result.returncode == 0

@@ -84,11 +84,15 @@ class TestVerifyRowCounts:
         sl = sqlite3.connect(str(tmp_path / "review.db"))
 
         class MockCursor:
+            def __init__(self):
+                self._last_sql = None
+
             def execute(self, sql, params=None):
-                class Result:
-                    def fetchone(self):
-                        return [2] if "images" in sql else [1]
-                return Result()
+                self._last_sql = sql
+                return self
+
+            def fetchone(self):
+                return [2] if "images" in self._last_sql else [1]
 
         results = verify_row_counts(sl, MockCursor())
         assert len(results) == 3  # personas, sets, images
@@ -100,11 +104,15 @@ class TestVerifyRowCounts:
         sl = sqlite3.connect(str(tmp_path / "review.db"))
 
         class MockCursor:
+            def __init__(self):
+                self._last_sql = None
+
             def execute(self, sql, params=None):
-                class Result:
-                    def fetchone(self):
-                        return [99]  # wrong for all tables
-                return Result()
+                self._last_sql = sql
+                return self
+
+            def fetchone(self):
+                return [99]
 
         results = verify_row_counts(sl, MockCursor())
         assert not any(r["match"] for r in results)
