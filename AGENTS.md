@@ -277,10 +277,16 @@ full workflow reference.
 - **Phase 5b concluded** — Poser retrieval spike (GT-LDA ceiling R@1=0.8538 after the
   2026-07-23 basis refit; was 0.842 on the pre-refit basis)
 - **Conditioning stack settled** — DINOv3 patches (identity) + z_g/DWPose (pose) + Sapiens2 (shape)
-- **Dead partitions** — z_d (depth), z_a (normals), DINO bridge (all KILLed;
-  tombstones written — `docs/DISCONTINUATION_NOTICE_{zd_depth,za_normals,dino_bridge}.md`)
+- **Dead partitions** — z_d (depth), z_a (normals), DINO bridge, and the retired
+  `z_g norm > 25 = degenerate` filter (KILL of the belief) — tombstones written —
+  `docs/DISCONTINUATION_NOTICE_{zd_depth,za_normals,dino_bridge,zg_norm_filter}.md`
 - **Data integrity (2026-09-24)** — identity streams all on one basis
-  (`120e1c5a1dc4f423`, L2-normalized, stamped); `z_g` high-norm tail still open
-  (`exp/zg-validity`, gate approved, not yet run)
-- **Next** — Phase 5: DiT Fusion Stack (2-stream decoupled cross-attention)
+  (`120e1c5a1dc4f423`, L2-normalized, stamped); `z_g` high-norm tail **concluded
+  2026-09-24** — `exp/zg-validity` KILLed the belief: the tail is pose
+  atypicality, not degeneracy — **no filter**
+  (`docs/DISCONTINUATION_NOTICE_zg_norm_filter.md`)
+- **Next** — set by the GitHub Project board (pi-216 project 14), the sole work
+  queue since board-first enrollment (2026-11-18). Phase 5 (DiT Fusion Stack) is
+  a candidate recorded in `PROJECT_STATUS.md`, not a scheduled action — do not
+  start it off-board
 - **No active training runs**
